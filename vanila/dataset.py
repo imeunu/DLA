@@ -25,8 +25,10 @@ class SimulateH5(uData.Dataset):
             self.num_images = len(self.keys)        
 
     def __getitem__(self, index):
+        ind_im = random.randint(0, self.num_images-1)
+        
         with h5.File(self.h5_path, 'r') as h5_file:
-            im_ori = h5_file[self.keys[str(index)]]
+            im_ori = np.array(h5_file[self.keys[ind_im]])
         im_gt = img_as_float(self.crop_patch(im_ori))
         C = im_gt.shape[2]
 
@@ -47,6 +49,9 @@ class SimulateH5(uData.Dataset):
         sigma2_map_gt = np.where(sigma2_map_gt<1e-10, 1e-10, sigma2_map_gt)
         sigma2_map_gt =  torch.from_numpy(sigma2_map_gt.transpose((2,0,1)))
 
+        im_gt = torch.from_numpy(im_gt.transpose((2,0,1)))
+        im_noisy = torch.from_numpy(im_noisy.transpose(2,0,1))
+        
         return im_noisy, im_gt, sigma2_map_est, sigma2_map_gt
 
     def __len__(self):

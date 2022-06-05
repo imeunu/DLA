@@ -11,6 +11,7 @@ from math import ceil
 from loss import loss_fn
 from networks.VDN import VDN, weight_init_kaiming
 from dataset import SimulateH5, SimulateTest
+import torch.utils.data as uData
 import torch.optim as optim
 import torch.nn.functional as F
 import torch.nn as nn
@@ -38,8 +39,8 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion):
     clip_grad_D = args.clip_grad_D
     clip_grad_S = args.clip_grad_S
     batch_size = {'train': args.batch_size, 'test_cbsd681': 1, 'test_cbsd682': 1, 'test_cbsd683': 1}
-    data_loader = {phase: torch.utils.data.DataLoader(datasets[phase], batch_size=batch_size[phase],
-          shuffle=True, num_workers=args.num_workers, pin_memory=True) for phase in datasets.keys()}
+    data_loader = uData.DataLoader(datasets['train'], batch_size=args.batch_size,
+          shuffle=True, num_workers=args.num_workers, pin_memory=True)
     num_data = {phase: len(datasets[phase]) for phase in datasets.keys()}
     num_iter_epoch = {phase: ceil(num_data[phase] / batch_size[phase]) for phase in datasets.keys()}
     writer = SummaryWriter(args.log_dir)
@@ -62,7 +63,7 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion):
         if lr < _lr_min:
             sys.exit('Reach the minimal learning rate')
         phase = 'train'
-        for ii, data in enumerate(data_loader[phase]):
+        for ii, data in enumerate(data_loader):
             im_noisy, im_gt, sigmaMapEst, sigmaMapGt = [x.cuda() for x in data]
             optimizer.zero_grad()
             phi_Z, phi_sigma = net(im_noisy, 'train')
@@ -125,7 +126,7 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion):
         clip_grad_S = min(clip_grad_S, grad_norm_S)
         print('-'*150)
 
-        # test stage
+        '''       # test stage
         net.eval()
         psnr_per_epoch = {x: 0 for x in _modes[1:]}
         ssim_per_epoch = {x: 0 for x in _modes[1:]}
@@ -160,15 +161,15 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion):
                     writer.add_image(phase+' Predict Sigma', x3, step_img[phase])
                     x4 = vutils.make_grid(im_noisy, normalize=True, scale_each=True)
                     writer.add_image(phase+' Noise Image', x4, step_img[phase])
-                    step_img[phase] += 1
+                    step_img[phase] += 1'''
 
-            psnr_per_epoch[phase] /= (ii+1)
+        '''            psnr_per_epoch[phase] /= (ii+1)
             ssim_per_epoch[phase] /= (ii+1)
             mse_per_epoch[phase] /= (ii+1)
             log_str = '{:s}: mse={:.3e}, PSNR={:4.2f}, SSIM={:5.4f}'
             print(log_str.format(phase, mse_per_epoch[phase], psnr_per_epoch[phase],
                                  ssim_per_epoch[phase]))
-            print('-'*90)
+            print('-'*90)'''
 
         # adjust the learning rate
         lr_scheduler.step()
@@ -191,8 +192,8 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion):
             torch.save(net.state_dict(), save_path_model_state)
 
         writer.add_scalars('MSE_epoch', mse_per_epoch, epoch)
-        writer.add_scalars('PSNR_epoch_test', psnr_per_epoch, epoch)
-        writer.add_scalars('SSIM_epoch_test', ssim_per_epoch, epoch)
+        #writer.add_scalars('PSNR_epoch_test', psnr_per_epoch, epoch)
+        #writer.add_scalars('SSIM_epoch_test', ssim_per_epoch, epoch)
         toc = time.time()
         print('This epoch take time {:.2f}'.format(toc-tic))
     writer.close()

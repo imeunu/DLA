@@ -1,3 +1,4 @@
+# image files 
 /debug.ipynb
 *.jpg
 *.png
@@ -5,3 +6,8 @@
 *.JPEG
 *.mat
 *.PNG
+
+__pycache__/
+*.pyc
+ 
+vanila/model/
