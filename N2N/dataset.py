@@ -33,10 +33,12 @@ class SimulateH5(uData.Dataset):
         C = im_gt.shape[2]
 
         # generate sigmaMap 
-        sigma_map = self.generate_sigma()
+        sigma_map1, sigma_map2 = self.generate_sigma(), self.generate_sigma()
+        sigma_map = sigma_map1 + sigma_map2
 
         # generate noise 
-        noise = torch.randn(im_gt.shape).numpy() * sigma_map
+        noise1 = torch.randn(im_gt.shape).numpy() * sigma_map1
+        noise2 = torch.randn(im_gt.shape).numpy() * sigma_map2
         im_noisy = im_gt + noise.astype(np.float32)
 
         im_gt, im_noisy, sigma_map = random_augmentation(im_gt, im_noisy, sigma_map)
