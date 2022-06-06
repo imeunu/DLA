@@ -39,12 +39,22 @@ class SimulateH5(uData.Dataset):
         # generate noise 
         noise1 = torch.randn(im_gt.shape).numpy() * sigma_map1
         noise2 = torch.randn(im_gt.shape).numpy() * sigma_map2
-        im_noisy = im_gt + noise.astype(np.float32)
+        im_noisy = im_gt + noise1.astype(np.float32)
+        im_gt = im_gt + noise2.astype(np.float32)
 
         im_gt, im_noisy, sigma_map = random_augmentation(im_gt, im_noisy, sigma_map)
 
         sigma2_map_est = sigma_estimate(im_noisy, im_gt, self.win, self.sigma_spatial)
         sigma2_map_est = torch.from_numpy(sigma2_map_est.transpose((2,0,1)))
+        
+        '''       noise1 = torch.randn(im_gt.shape).numpy() * sigma_map1
+        noise2 = torch.randn(im_gt.shape).numpy() * sigma_map2
+        im_noisy = im_gt + noise.astype(np.float32)
+
+        im_gt, im_noisy, sigma_map = random_augmentation(im_gt, im_noisy, sigma_map)
+
+        sigma2_map_est = sigma_estimate(im_noisy, im_gt, self.win, self.sigma_spatial)
+        sigma2_map_est = torch.from_numpy(sigma2_map_est.transpose((2,0,1)))'''
 
         # ground truth sigmamap
         sigma2_map_gt = np.tile(np.square(sigma_map), (1,1,C))

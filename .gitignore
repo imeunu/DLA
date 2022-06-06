@@ -10,3 +10,6 @@ __pycache__/
 *.pyc
  
 vanila/model/
+N2N/model/
+
+log/
