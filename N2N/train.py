@@ -39,8 +39,14 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion):
     clip_grad_D = args.clip_grad_D
     clip_grad_S = args.clip_grad_S
     batch_size = {'train': args.batch_size, 'test_cbsd681': 1, 'test_cbsd682': 1, 'test_cbsd683': 1}
-    data_loader = uData.DataLoader(datasets['train'], batch_size=args.batch_size,
-          shuffle=True, num_workers=args.num_workers, pin_memory=True)
+
+    train_loader = uData.DataLoader(datasets['train'], batch_size=batch_size['train'], shuffle=True, num_workers=args.num_workers, pin_memory=True)
+    test1_loader = uData.DataLoader(datasets['test_cbsd681'], batch_size=batch_size['test_cbsd681'], shuffle=False, num_workers=args.num_workers, pin_memory=True)
+    test2_loader = uData.DataLoader(datasets['test_cbsd682'], batch_size=batch_size['test_cbsd682'], shuffle=False, num_workers=args.num_workers, pin_memory=True)
+    test3_loader = uData.DataLoader(datasets['test_cbsd683'], batch_size=batch_size['test_cbsd683'], shuffle=False, num_workers=args.num_workers, pin_memory=True)
+
+    data_loader = {'train' : train_loader, 'test_cbsd681' : test1_loader, 'test_cbsd682' : test2_loader, 'test_cbsd683' : test3_loader}
+
     num_data = {phase: len(datasets[phase]) for phase in datasets.keys()}
     num_iter_epoch = {phase: ceil(num_data[phase] / batch_size[phase]) for phase in datasets.keys()}
     writer = SummaryWriter(args.log_dir)
@@ -63,8 +69,8 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion):
         if lr < _lr_min:
             sys.exit('Reach the minimal learning rate')
         phase = 'train'
-        for ii, data in enumerate(data_loader):
-            im_noisy, im_gt, sigmaMapEst, sigmaMapGt = [x.cuda() for x in data]
+        for ii, data in enumerate(data_loader[phase]):
+            im_noisy, im_gt, sigmaMapGt = [x.cuda() for x in data]
             optimizer.zero_grad()
             phi_Z, phi_sigma = net(im_noisy, 'train')
             loss, g_lh, kl_g, kl_Igam = criterion(phi_Z, phi_sigma, im_noisy, im_gt,
@@ -126,50 +132,51 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion):
         clip_grad_S = min(clip_grad_S, grad_norm_S)
         print('-'*150)
 
-        '''       # test stage
-        net.eval()
-        psnr_per_epoch = {x: 0 for x in _modes[1:]}
-        ssim_per_epoch = {x: 0 for x in _modes[1:]}
-        for phase in _modes[1:]:
-            for ii, data in enumerate(data_loader[phase]):
-                im_noisy, im_gt = [x.cuda() for x in data]
-                with torch.set_grad_enabled(False):
-                    phi_Z, phi_sigma = net(im_noisy, 'train')
+        # test stage
+        if epoch % 10 == 0:
+            net.eval()
+            psnr_per_epoch = {x: 0 for x in _modes[1:]}
+            ssim_per_epoch = {x: 0 for x in _modes[1:]}
+            for phase in _modes[1:]:
+                for ii, data in enumerate(data_loader[phase]):
+                    im_noisy, im_gt = [x.cuda() for x in data]
+                    with torch.set_grad_enabled(False):
+                        phi_Z, phi_sigma = net(im_noisy, 'train')
 
-                im_denoise = torch.clamp(im_noisy-phi_Z[:, :_C, ].detach().data, 0.0, 1.0)
-                mse = F.mse_loss(im_denoise, im_gt)
-                mse_per_epoch[phase] += mse
-                psnr_iter = batch_PSNR(im_denoise, im_gt)
-                ssim_iter = batch_SSIM(im_denoise, im_gt)
-                psnr_per_epoch[phase] += psnr_iter
-                ssim_per_epoch[phase] += ssim_iter
-                # print statistics every log_interval mini_batches
-                if (ii+1) % 20 == 0:
-                    log_str = '[Epoch:{:>3d}/{:<3d}] {:s}:{:0>5d}/{:0>5d}, mse={:.2e}, ' + \
-                        'psnr={:4.2f}, ssim={:5.4f}'
-                    print(log_str.format(epoch+1, args.epochs, phase, ii+1, num_iter_epoch[phase],
-                                                                         mse, psnr_iter, ssim_iter))
-                # tensorboardX summary
-                    alpha = torch.exp(phi_sigma[:, :_C, ])
-                    beta = torch.exp(phi_sigma[:, _C:, ])
-                    sigmaMap_pred = beta / (alpha-1)
-                    x1 = vutils.make_grid(im_denoise, normalize=True, scale_each=True)
-                    writer.add_image(phase+' Denoised images', x1, step_img[phase])
-                    x2 = vutils.make_grid(im_gt, normalize=True, scale_each=True)
-                    writer.add_image(phase+' GroundTruth', x2, step_img[phase])
-                    x3 = vutils.make_grid(sigmaMap_pred, normalize=True, scale_each=True)
-                    writer.add_image(phase+' Predict Sigma', x3, step_img[phase])
-                    x4 = vutils.make_grid(im_noisy, normalize=True, scale_each=True)
-                    writer.add_image(phase+' Noise Image', x4, step_img[phase])
-                    step_img[phase] += 1'''
+                    im_denoise = torch.clamp(im_noisy-phi_Z[:, :_C, ].detach().data, 0.0, 1.0)
+                    mse = F.mse_loss(im_denoise, im_gt)
+                    mse_per_epoch[phase] += mse
+                    psnr_iter = batch_PSNR(im_denoise, im_gt)
+                    ssim_iter = batch_SSIM(im_denoise, im_gt)
+                    psnr_per_epoch[phase] += psnr_iter
+                    ssim_per_epoch[phase] += ssim_iter
+                    # print statistics every log_interval mini_batches
+                    if (ii+1) % 20 == 0:
+                        log_str = '[Epoch:{:>3d}/{:<3d}] {:s}:{:0>5d}/{:0>5d}, mse={:.2e}, ' + \
+                            'psnr={:4.2f}, ssim={:5.4f}'
+                        print(log_str.format(epoch+1, args.epochs, phase, ii+1, num_iter_epoch[phase],
+                                                                            mse, psnr_iter, ssim_iter))
+                    # tensorboardX summary
+                        alpha = torch.exp(phi_sigma[:, :_C, ])
+                        beta = torch.exp(phi_sigma[:, _C:, ])
+                        sigmaMap_pred = beta / (alpha-1)
+                        x1 = vutils.make_grid(im_denoise, normalize=True, scale_each=True)
+                        writer.add_image(phase+' Denoised images', x1, step_img[phase])
+                        x2 = vutils.make_grid(im_gt, normalize=True, scale_each=True)
+                        writer.add_image(phase+' GroundTruth', x2, step_img[phase])
+                        x3 = vutils.make_grid(sigmaMap_pred, normalize=True, scale_each=True)
+                        writer.add_image(phase+' Predict Sigma', x3, step_img[phase])
+                        x4 = vutils.make_grid(im_noisy, normalize=True, scale_each=True)
+                        writer.add_image(phase+' Noise Image', x4, step_img[phase])
+                        step_img[phase] += 1
 
-        '''            psnr_per_epoch[phase] /= (ii+1)
-            ssim_per_epoch[phase] /= (ii+1)
-            mse_per_epoch[phase] /= (ii+1)
-            log_str = '{:s}: mse={:.3e}, PSNR={:4.2f}, SSIM={:5.4f}'
-            print(log_str.format(phase, mse_per_epoch[phase], psnr_per_epoch[phase],
-                                 ssim_per_epoch[phase]))
-            print('-'*90)'''
+                psnr_per_epoch[phase] /= (ii+1)
+                ssim_per_epoch[phase] /= (ii+1)
+                mse_per_epoch[phase] /= (ii+1)
+                log_str = '{:s}: mse={:.3e}, PSNR={:4.2f}, SSIM={:5.4f}'
+                print(log_str.format(phase, mse_per_epoch[phase], psnr_per_epoch[phase],
+                                    ssim_per_epoch[phase]))
+                print('-'*90)
 
         # adjust the learning rate
         lr_scheduler.step()
@@ -192,8 +199,8 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion):
             torch.save(net.state_dict(), save_path_model_state)
 
         writer.add_scalars('MSE_epoch', mse_per_epoch, epoch)
-        #writer.add_scalars('PSNR_epoch_test', psnr_per_epoch, epoch)
-        #writer.add_scalars('SSIM_epoch_test', ssim_per_epoch, epoch)
+        writer.add_scalars('PSNR_epoch_test', psnr_per_epoch, epoch)
+        writer.add_scalars('SSIM_epoch_test', ssim_per_epoch, epoch)
         toc = time.time()
         print('This epoch take time {:.2f}'.format(toc-tic))
     writer.close()
@@ -245,10 +252,10 @@ def main():
                                                                     list(simulate_dir.glob('*.bmp'))
     train_im_list = sorted([str(x) for x in train_im_list])
     # making tesing data
-    test_case1_h5 = Path('test_data').joinpath('noise_niid', 'CBSD68_niid_case1.hdf5')
-    test_case2_h5 = Path('test_data').joinpath('noise_niid', 'CBSD68_niid_case2.hdf5')
-    test_case3_h5 = Path('test_data').joinpath('noise_niid', 'CBSD68_niid_case3.hdf5')
-    test_im_list = (Path('test_data') / 'CBSD68').glob('*.png')
+    test_case1_h5 = Path('../test_data').joinpath('noise_niid', 'CBSD68_niid_case1.hdf5')
+    test_case2_h5 = Path('../test_data').joinpath('noise_niid', 'CBSD68_niid_case2.hdf5')
+    test_case3_h5 = Path('../test_data').joinpath('noise_niid', 'CBSD68_niid_case3.hdf5')
+    test_im_list = (Path('../test_data') / 'CBSD68').glob('*.png')
     test_im_list = sorted([str(x) for x in test_im_list])
     datasets = {'train': SimulateH5(h5_path = args.simulateh5_dir, 
                                           pch_size = args.patch_size, radius=args.radius),
