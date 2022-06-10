@@ -8,14 +8,15 @@ import torch.utils.data as uData
 from skimage import img_as_float32 as img_as_float
 from data_tools import sigma_estimate, random_augmentation, gaussian_kernel
 
-
+from glob import glob
+from pathlib import Path
 
 class SimulateH5(uData.Dataset):
     def __init__(self, h5_path, pch_size, radius):
         self.h5_path = h5_path
         self.pch_size = pch_size
         self.sigma_min = 0
-        self.sigma_max = 75
+        self.sigma_max = 50
 
         self.win = 2*radius + 1
         self.sigma_spatial = radius
@@ -23,13 +24,13 @@ class SimulateH5(uData.Dataset):
         with h5.File(h5_path, 'r') as h5_file:
             self.keys = list(h5_file.keys())
             self.num_images = len(self.keys)
+        
+        with h5.File('/home/eunu/gaussian.h5', 'r') as f:
+            self.imgs = np.array([np.array(f[key]) for key in f.keys()])
 
     def __getitem__(self, index):
-        ind_im = random.randint(0, self.num_images-1)
         
-        with h5.File(self.h5_path, 'r') as h5_file:
-            im_ori = np.array(h5_file[self.keys[ind_im]])
-        im_gt = img_as_float(self.crop_patch(im_ori))
+        im_gt = img_as_float(self.crop_patch(self.imgs[index]))
         C = im_gt.shape[2]
 
         # generate sigmaMap 
@@ -41,8 +42,8 @@ class SimulateH5(uData.Dataset):
 
         im_gt, im_noisy, sigma_map = random_augmentation(im_gt, im_noisy, sigma_map)
 
-        sigma2_map_est = sigma_estimate(im_noisy, im_gt, self.win, self.sigma_spatial)
-        sigma2_map_est = torch.from_numpy(sigma2_map_est.transpose((2,0,1)))
+        # sigma2_map_est = sigma_estimate(im_noisy, im_gt, self.win, self.sigma_spatial)
+        # sigma2_map_est = torch.from_numpy(sigma2_map_est.transpose((2,0,1)))
 
         # ground truth sigmamap
         sigma2_map_gt = np.tile(np.square(sigma_map), (1,1,C))
@@ -52,7 +53,7 @@ class SimulateH5(uData.Dataset):
         im_gt = torch.from_numpy(im_gt.transpose((2,0,1)))
         im_noisy = torch.from_numpy(im_noisy.transpose(2,0,1))
         
-        return im_noisy, im_gt, sigma2_map_est, sigma2_map_gt
+        return im_noisy, im_gt, sigma2_map_gt, #sigma2_map_est
 
     def __len__(self):
         return self.num_images
@@ -107,8 +108,3 @@ class SimulateTest(uData.Dataset):
         im_noisy = torch.from_numpy(im_noisy.transpose((2, 0, 1))).type(torch.float32)
 
         return im_noisy, im_gt
-
-if __name__ == '__main__':
-    dataset = SimulateH5(h5_path='../../../eunu/real_gt.h5', pch_size=128, radius=3)
-    data, _, _, _ = dataset.__getitem__(1)
-    print(data)

@@ -7,14 +7,14 @@ def set_opts():
                                                          help="Batchsize of training, (default:64)")
     parser.add_argument('--patch_size', type=int, default=128,
                                                    help="Patch size of data sample,  (default:128)")
-    parser.add_argument('--epochs', type=int, default=60, help="Training epohcs,  (default:60)")
+    parser.add_argument('--epochs', type=int, default=1000, help="Training epohcs,  (default:60)")
     parser.add_argument('--lr', type=float, default=2e-4,
                                                   help="Initialized learning rate, (default: 2e-4)")
     parser.add_argument('--gamma', type=float, default=0.5,
                                          help="Decaying rate for the learning rate, (default: 0.5)")
     parser.add_argument('-p', '--print_freq', type=int, default=100,
                                                               help="Print frequence (default: 100)")
-    parser.add_argument('-s', '--save_model_freq', type=int, default=1,
+    parser.add_argument('-s', '--save_model_freq', type=int, default=10,
                                                             help="Save moel frequence (default: 1)")
 
     # Cliping the Gradients Norm during the training
@@ -24,7 +24,7 @@ def set_opts():
                                              help="Cliping the gradients for S-Net, (default: 1e3)")
 
     # GPU settings
-    parser.add_argument('--gpu_id', type=int, nargs='+', default=0,
+    parser.add_argument('--gpu_id', type=int, nargs='+', default=1,
                                                            help="GPU ID, which allow multiple GPUs")
 
     # dataset settings

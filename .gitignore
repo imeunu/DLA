@@ -13,3 +13,7 @@ vanila/model/
 N2N/model/
 
 log/
+
+*.hdf5
+
+results/

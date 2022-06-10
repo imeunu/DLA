@@ -66,8 +66,8 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion):
         # train stage
         net.train()
         lr = optimizer.param_groups[0]['lr']
-        if lr < _lr_min:
-            sys.exit('Reach the minimal learning rate')
+        #if lr < _lr_min:
+            #sys.exit('Reach the minimal learning rate')
         phase = 'train'
         for ii, data in enumerate(data_loader[phase]):
             im_noisy, im_gt, sigmaMapGt = [x.cuda() for x in data]
@@ -214,8 +214,7 @@ def main():
 
     # optimizer
     optimizer = optim.Adam(net.parameters(), lr=args.lr)
-    args.milestones = [10, 20, 25, 30, 35, 40, 45, 50]
-    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, args.milestones, args.gamma)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size= 100, gamma = args.gamma)
 
     if args.resume:
         if os.path.isfile(args.resume):

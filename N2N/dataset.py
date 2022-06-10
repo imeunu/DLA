@@ -15,7 +15,7 @@ class SimulateH5(uData.Dataset):
         self.h5_path = h5_path
         self.pch_size = pch_size
         self.sigma_min = 0
-        self.sigma_max = 75
+        self.sigma_max = 25
 
         self.win = 2*radius + 1
         self.sigma_spatial = radius
@@ -64,7 +64,7 @@ class SimulateH5(uData.Dataset):
         im_gt = torch.from_numpy(im_gt.transpose((2,0,1)))
         im_noisy = torch.from_numpy(im_noisy.transpose(2,0,1))
         
-        return im_noisy, im_gt, sigma2_map_est, sigma2_map_gt
+        return im_noisy, im_gt, sigma2_map_gt, #sigma2_map_est
 
     def __len__(self):
         return self.num_images
