@@ -193,3 +193,46 @@ class SimulateH5N2N(uData.Dataset):
         ind_W = random.randint(0, W-self.pch_size)
         pch = im[ind_H:ind_H+self.pch_size, ind_W:ind_W+self.pch_size]
         return pch
+
+class RealH5(uData.Dataset):
+    def __init__(self, gt_h5_path, noise_h5_path):
+        with h5.File(gt_h5_path, 'r') as h5_file:
+            self.gt_keys = list(h5_file.keys())
+            self.gt_imgs = np.array([np.array(h5_file[key]) for key in h5_file.keys()])
+            self.gt_num_images = len(self.keys)
+
+
+        with h5.File(noise_h5_path, 'r') as h5_file:
+            self.noise_keys = list(h5_file.keys())
+            self.noise_num_images = len(self.keys)
+            self.noise_imgs = np.array([np.array(h5_file[key]) for key in h5_file.keys()])
+
+    def __getitem__(self, index):
+        im_gt = img_as_float(self.crop_patch(self.gt_imgs[index]))
+        im_noisy = img_as_float(self.crop_patch(self.noise_imgs[index]))
+        
+        # data augmentation
+        im_gt, im_noisy = random_augmentation(im_gt, im_noisy)
+
+        
+        sigma2_map_est = sigma_estimate(im_noisy, im_gt, self.win, self.sigma_spatial)
+
+        im_gt = torch.from_numpy(im_gt.transpose((2, 0, 1)))
+        im_noisy = torch.from_numpy(im_noisy.transpose((2, 0, 1)))
+        eps2 = torch.tensor([self.eps2], dtype=torch.float32).reshape((1,1,1))
+
+        sigma2_map_est = torch.from_numpy(sigma2_map_est.transpose((2, 0, 1)))
+        
+        return im_noisy, im_gt, sigma2_map_est, eps2
+
+    def crop_patch(self, im): 
+        H = im.shape[0]
+        W = im.shape[1]
+        if H < self.pch_size or W < self.pch_size:
+            H = max(self.pch_size, H)
+            W = max(self.pch_size, W)
+            im = cv2.resize(im, (W, H))
+        ind_H = random.randint(0, H-self.pch_size)
+        ind_W = random.randint(0, W-self.pch_size)
+        pch = im[ind_H:ind_H+self.pch_size, ind_W:ind_W+self.pch_size]
+        return pch    
