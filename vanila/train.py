@@ -10,7 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 from math import ceil
 from loss import loss_fn
 from networks.VDN import VDN, weight_init_kaiming
-from dataset import SimulateH5, SimulateTest
+from dataset import SimulateH5, SimulateTest, SimulateH5N2N
 import torch.utils.data as uData
 import torch.optim as optim
 import torch.nn.functional as F
@@ -35,7 +35,7 @@ _C = 3
 _lr_min = 1e-6
 _modes = ['train', 'test_cbsd681', 'test_cbsd682', 'test_cbsd683']
 
-def train_model(net, datasets, optimizer, lr_scheduler, criterion):
+def train_model(net, datasets, optimizer, lr_scheduler, criterion, sigma):
     clip_grad_D = args.clip_grad_D
     clip_grad_S = args.clip_grad_S
     batch_size = {'train': args.batch_size, 'test_cbsd681': 1, 'test_cbsd682': 1, 'test_cbsd683': 1}
@@ -49,7 +49,7 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion):
 
     num_data = {phase: len(datasets[phase]) for phase in datasets.keys()}
     num_iter_epoch = {phase: ceil(num_data[phase] / batch_size[phase]) for phase in datasets.keys()}
-    writer = SummaryWriter(args.log_dir)
+    writer = SummaryWriter(f'{args.log_dir}/sigma_{sigma}_N2N')
     if args.resume:
         step = args.step
         step_img = args.step_img
@@ -183,7 +183,7 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion):
         # save model
         if (epoch+1) % args.save_model_freq == 0 or epoch+1 == args.epochs:
             model_prefix = 'model_'
-            save_path_model = os.path.join(args.model_dir, model_prefix+str(epoch+1))
+            save_path_model = os.path.join(f'{args.model_dir}/sigma_{sigma}_N2N', model_prefix+str(epoch+1))
             torch.save({
                 'epoch': epoch+1,
                 'step': step+1,
@@ -215,7 +215,7 @@ def main(sigma):
     # optimizer
     optimizer = optim.Adam(net.parameters(), lr=args.lr)
     # args.milestones = [20, 70, 150, 300, 500]
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma = args.gamma)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=35, gamma = args.gamma)
 
     if args.resume:
         if os.path.isfile(args.resume):
@@ -235,12 +235,12 @@ def main(sigma):
     else:
         net = weight_init_kaiming(net)
         args.epoch_start = 0
-        if os.path.isdir(f'{args.log_dir}/sigma_{sigma}'):
-            shutil.rmtree(f'{args.log_dir}/sigma_{sigma}')
-        os.makedirs(f'{args.log_dir}/sigma_{sigma}')
-        if os.path.isdir(f'{args.log_dir}/sigma_{sigma}'):
-            shutil.rmtree(f'{args.log_dir}/sigma_{sigma}')
-        os.makedirs(f'{args.log_dir}/sigma_{sigma}')
+        if os.path.isdir(f'{args.log_dir}/sigma_{sigma}_N2N'):
+            shutil.rmtree(f'{args.log_dir}/sigma_{sigma}_N2N')
+        os.makedirs(f'{args.log_dir}/sigma_{sigma}_N2N')
+        if os.path.isdir(f'{args.log_dir}/sigma_{sigma}_N2N'):
+            shutil.rmtree(f'{args.log_dir}/sigma_{sigma}_N2N')
+        os.makedirs(f'{args.log_dir}/sigma_{sigma}_N2N')
 
     # print the arg pamameters
     for arg in vars(args):
@@ -252,19 +252,19 @@ def main(sigma):
                                                                     list(simulate_dir.glob('*.bmp'))
     train_im_list = sorted([str(x) for x in train_im_list])
     # making tesing data
-    test_case1_h5 = Path('../test_data').joinpath('noise_niid', 'CBSD68_niid_case1.hdf5')
-    test_case2_h5 = Path('../test_data').joinpath('noise_niid', 'CBSD68_niid_case2.hdf5')
-    test_case3_h5 = Path('../test_data').joinpath('noise_niid', 'CBSD68_niid_case3.hdf5')
-    test_im_list = (Path('../test_data') / 'CBSD68').glob('*.png')
+    test_case1_h5 = Path('/home/junsung/DLA/test_data').joinpath('noise_niid', 'CBSD68_niid_case1.hdf5')
+    test_case2_h5 = Path('/home/junsung/DLA/test_data').joinpath('noise_niid', 'CBSD68_niid_case2.hdf5')
+    test_case3_h5 = Path('/home/junsung/DLA/test_data').joinpath('noise_niid', 'CBSD68_niid_case3.hdf5')
+    test_im_list = (Path('/home/junsung/DLA/test_data') / 'CBSD68').glob('*.png')
     test_im_list = sorted([str(x) for x in test_im_list])
-    datasets = {'train': SimulateH5(h5_path = args.simulateh5_dir, 
+    datasets = {'train': SimulateH5N2N(h5_path = args.simulateh5_dir, 
                                           pch_size = args.patch_size, radius=args.radius, sigma=sigma),
                          'test_cbsd681':SimulateTest(test_im_list, test_case1_h5),
                         'test_cbsd682': SimulateTest(test_im_list, test_case2_h5),
                         'test_cbsd683': SimulateTest(test_im_list, test_case3_h5)}
     # train model
     print('\nBegin training with GPU: ' + str(args.gpu_id))
-    train_model(net, datasets, optimizer, scheduler, loss_fn)
+    train_model(net, datasets, optimizer, scheduler, loss_fn, sigma)
 
 if __name__ == '__main__':
     for sigma in [15,25,50]:

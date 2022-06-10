@@ -10,7 +10,7 @@ from data_tools import sigma_estimate, random_augmentation, gaussian_kernel
 
 
 
-class SimulateH5(uData.Dataset):
+class SimulateH5N2N(uData.Dataset):
     def __init__(self, h5_path, pch_size, radius):
         self.h5_path = h5_path
         self.pch_size = pch_size
