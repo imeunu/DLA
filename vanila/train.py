@@ -206,7 +206,7 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion):
     writer.close()
     print('Reach the maximal epochs! Finish training')
 
-def main():
+def main(sigma):
     # build the model
     net = VDN(_C, slope=args.slope, wf=args.wf, dep_U=args.depth)
     # move the model to GPU
@@ -235,12 +235,12 @@ def main():
     else:
         net = weight_init_kaiming(net)
         args.epoch_start = 0
-        if os.path.isdir(args.log_dir):
-            shutil.rmtree(args.log_dir)
-        os.makedirs(args.log_dir)
-        if os.path.isdir(args.model_dir):
-            shutil.rmtree(args.model_dir)
-        os.makedirs(args.model_dir)
+        if os.path.isdir(f'{args.log_dir}/sigma_{sigma}'):
+            shutil.rmtree(f'{args.log_dir}/sigma_{sigma}')
+        os.makedirs(f'{args.log_dir}/sigma_{sigma}')
+        if os.path.isdir(f'{args.log_dir}/sigma_{sigma}'):
+            shutil.rmtree(f'{args.log_dir}/sigma_{sigma}')
+        os.makedirs(f'{args.log_dir}/sigma_{sigma}')
 
     # print the arg pamameters
     for arg in vars(args):
@@ -258,7 +258,7 @@ def main():
     test_im_list = (Path('../test_data') / 'CBSD68').glob('*.png')
     test_im_list = sorted([str(x) for x in test_im_list])
     datasets = {'train': SimulateH5(h5_path = args.simulateh5_dir, 
-                                          pch_size = args.patch_size, radius=args.radius),
+                                          pch_size = args.patch_size, radius=args.radius, sigma=sigma),
                          'test_cbsd681':SimulateTest(test_im_list, test_case1_h5),
                         'test_cbsd682': SimulateTest(test_im_list, test_case2_h5),
                         'test_cbsd683': SimulateTest(test_im_list, test_case3_h5)}
@@ -267,4 +267,5 @@ def main():
     train_model(net, datasets, optimizer, scheduler, loss_fn)
 
 if __name__ == '__main__':
-    main()
+    for sigma in [15,25,50]:
+        main(sigma)

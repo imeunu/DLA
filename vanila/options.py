@@ -32,7 +32,7 @@ def set_opts():
                                               help="Path to save the SIDD dataset, (default: None)")
     parser.add_argument('--simulate_dir', default='/ssd1t/simulation/train', type=str,
                                     metavar='PATH', help="Path to save the images, (default: None)")
-    parser.add_argument('--simulateh5_dir', default='../../../eunu/real_gt.h5', type=str)
+    parser.add_argument('--simulateh5_dir', default='/home/eunu/gaussian.h5', type=str)
 
 
     # model and log saving

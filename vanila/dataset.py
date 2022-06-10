@@ -12,11 +12,11 @@ from glob import glob
 from pathlib import Path
 
 class SimulateH5(uData.Dataset):
-    def __init__(self, h5_path, pch_size, radius):
+    def __init__(self, h5_path, pch_size, radius, sigma):
         self.h5_path = h5_path
         self.pch_size = pch_size
         self.sigma_min = 0
-        self.sigma_max = 50
+        self.sigma_max = sigma
 
         self.win = 2*radius + 1
         self.sigma_spatial = radius
