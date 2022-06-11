@@ -36,6 +36,7 @@ _lr_min = 1e-6
 _modes = ['train', 'test_cbsd681', 'test_cbsd682', 'test_cbsd683']
 
 def train_model(net, datasets, optimizer, lr_scheduler, criterion, sigma):
+    os.makedirs(f'{args.model_dir}/sigma_{sigma}_N2N', exist_ok=True)
     clip_grad_D = args.clip_grad_D
     clip_grad_S = args.clip_grad_S
     batch_size = {'train': args.batch_size, 'test_cbsd681': 1, 'test_cbsd682': 1, 'test_cbsd683': 1}
@@ -183,7 +184,7 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion, sigma):
         # save model
         if (epoch+1) % args.save_model_freq == 0 or epoch+1 == args.epochs:
             model_prefix = 'model_'
-            save_path_model = os.path.join(f'{args.model_dir}/sigma_{sigma}_N2N', model_prefix+str(epoch+1))
+            save_path_model = os.path.join(f'{args.model_dir}/sigma_{sigma}_N2N', model_prefix+str(epoch+1)+'.pth')
             torch.save({
                 'epoch': epoch+1,
                 'step': step+1,
@@ -195,7 +196,7 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion, sigma):
                 'lr_scheduler_state_dict': lr_scheduler.state_dict()
             }, save_path_model)
             model_state_prefix = 'model_state_'
-            save_path_model_state = os.path.join(args.model_dir, model_state_prefix+str(epoch+1))
+            save_path_model_state = os.path.join(f'{args.model_dir}/sigma_{sigma}_N2N', model_state_prefix+str(epoch+1)+'.pth')
             torch.save(net.state_dict(), save_path_model_state)
 
         writer.add_scalars('MSE_epoch', mse_per_epoch, epoch)
