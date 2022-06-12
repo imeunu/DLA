@@ -25,7 +25,7 @@ class SimulateH5(uData.Dataset):
             self.keys = list(h5_file.keys())
             self.num_images = len(self.keys)
         
-        with h5.File('/home/eunu/gaussian.h5', 'r') as f:
+        with h5.File('/home/eunu/nas/DLA/gaussian.h5', 'r') as f:
             self.imgs = np.array([np.array(f[key]) for key in f.keys()])
 
     def __getitem__(self, index):
@@ -122,13 +122,10 @@ class SimulateH5N2N(uData.Dataset):
         with h5.File(h5_path, 'r') as h5_file:
             self.keys = list(h5_file.keys())
             self.num_images = len(self.keys)
+            self.imgs = np.array([np.array(h5_file[key]) for key in h5_file.keys()])
 
     def __getitem__(self, index):
-        ind_im = random.randint(0, self.num_images-1)
-        
-        with h5.File(self.h5_path, 'r') as h5_file:
-            im_ori = np.array(h5_file[self.keys[ind_im]])
-        im_gt = img_as_float(self.crop_patch(im_ori))
+        im_gt = img_as_float(self.crop_patch(self.imgs[index]))
         C = im_gt.shape[2]
 
         # generate sigmaMap 
@@ -143,8 +140,8 @@ class SimulateH5N2N(uData.Dataset):
 
         im_gt, im_noisy, sigma_map = random_augmentation(im_gt, im_noisy, sigma_map)
 
-        sigma2_map_est = sigma_estimate(im_noisy, im_gt, self.win, self.sigma_spatial)
-        sigma2_map_est = torch.from_numpy(sigma2_map_est.transpose((2,0,1)))
+        # sigma2_map_est = sigma_estimate(im_noisy, im_gt, self.win, self.sigma_spatial)
+        # sigma2_map_est = torch.from_numpy(sigma2_map_est.transpose((2,0,1)))
         
         '''       noise1 = torch.randn(im_gt.shape).numpy() * sigma_map1
         noise2 = torch.randn(im_gt.shape).numpy() * sigma_map2

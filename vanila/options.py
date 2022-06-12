@@ -24,7 +24,7 @@ def set_opts():
                                              help="Cliping the gradients for S-Net, (default: 1e3)")
 
     # GPU settings
-    parser.add_argument('--gpu_id', type=int, nargs='+', default=2,
+    parser.add_argument('--gpu_id', type=int, nargs='+', default=1,
                                                            help="GPU ID, which allow multiple GPUs")
 
     # dataset settings
@@ -32,7 +32,7 @@ def set_opts():
                                               help="Path to save the SIDD dataset, (default: None)")
     parser.add_argument('--simulate_dir', default='/ssd1t/simulation/train', type=str,
                                     metavar='PATH', help="Path to save the images, (default: None)")
-    parser.add_argument('--simulateh5_dir', default='/home/eunu/gaussian.h5', type=str)
+    parser.add_argument('--simulateh5_dir', default='/home/eunu/nas/DLA/gaussian.h5', type=str)
 
 
     # model and log saving
@@ -40,7 +40,7 @@ def set_opts():
                                                  help="Path to save the log file, (default: ./log)")
     parser.add_argument('--model_dir', default='./model', type=str, metavar='PATH',
                                              help="Path to save the model file, (default: ./model)")
-    parser.add_argument('--resume', default='', type=str, metavar='PATH',
+    parser.add_argument('--resume', default='/home/eunu/DLA/vanila/model/sigma_15/model_20.pth', type=str, metavar='PATH',
                                                help="Path to the latest checkpoint (default: None)")
     parser.add_argument('--num_workers', default=8, type=int,
                                                 help="Number of workers to load data, (default: 8)")

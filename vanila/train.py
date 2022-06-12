@@ -10,7 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 from math import ceil
 from loss import loss_fn
 from networks.VDN import VDN, weight_init_kaiming
-from dataset import SimulateH5, SimulateTest, SimulateH5N2N
+from dataset import SimulateH5, SimulateTest
 import torch.utils.data as uData
 import torch.optim as optim
 import torch.nn.functional as F
@@ -36,7 +36,7 @@ _lr_min = 1e-6
 _modes = ['train', 'test_cbsd681', 'test_cbsd682', 'test_cbsd683']
 
 def train_model(net, datasets, optimizer, lr_scheduler, criterion, sigma):
-    os.makedirs(f'{args.model_dir}/sigma_{sigma}_N2N', exist_ok=True)
+    os.makedirs(f'{args.model_dir}/sigma_{sigma}', exist_ok=True)
     clip_grad_D = args.clip_grad_D
     clip_grad_S = args.clip_grad_S
     batch_size = {'train': args.batch_size, 'test_cbsd681': 1, 'test_cbsd682': 1, 'test_cbsd683': 1}
@@ -50,7 +50,7 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion, sigma):
 
     num_data = {phase: len(datasets[phase]) for phase in datasets.keys()}
     num_iter_epoch = {phase: ceil(num_data[phase] / batch_size[phase]) for phase in datasets.keys()}
-    writer = SummaryWriter(f'{args.log_dir}/sigma_{sigma}_N2N')
+    writer = SummaryWriter(f'{args.log_dir}/sigma_{sigma}')
     if args.resume:
         step = args.step
         step_img = args.step_img
@@ -184,7 +184,7 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion, sigma):
         # save model
         if (epoch+1) % args.save_model_freq == 0 or epoch+1 == args.epochs:
             model_prefix = 'model_'
-            save_path_model = os.path.join(f'{args.model_dir}/sigma_{sigma}_N2N', model_prefix+str(epoch+1)+'.pth')
+            save_path_model = os.path.join(f'{args.model_dir}/sigma_{sigma}', model_prefix+str(epoch+1)+'.pth')
             torch.save({
                 'epoch': epoch+1,
                 'step': step+1,
@@ -196,7 +196,7 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion, sigma):
                 'lr_scheduler_state_dict': lr_scheduler.state_dict()
             }, save_path_model)
             model_state_prefix = 'model_state_'
-            save_path_model_state = os.path.join(f'{args.model_dir}/sigma_{sigma}_N2N', model_state_prefix+str(epoch+1)+'.pth')
+            save_path_model_state = os.path.join(f'{args.model_dir}/sigma_{sigma}', model_state_prefix+str(epoch+1)+'.pth')
             torch.save(net.state_dict(), save_path_model_state)
 
         writer.add_scalars('MSE_epoch', mse_per_epoch, epoch)
@@ -236,12 +236,12 @@ def main(sigma):
     else:
         net = weight_init_kaiming(net)
         args.epoch_start = 0
-        if os.path.isdir(f'{args.log_dir}/sigma_{sigma}_N2N'):
-            shutil.rmtree(f'{args.log_dir}/sigma_{sigma}_N2N')
-        os.makedirs(f'{args.log_dir}/sigma_{sigma}_N2N')
-        if os.path.isdir(f'{args.log_dir}/sigma_{sigma}_N2N'):
-            shutil.rmtree(f'{args.log_dir}/sigma_{sigma}_N2N')
-        os.makedirs(f'{args.log_dir}/sigma_{sigma}_N2N')
+        if os.path.isdir(f'{args.log_dir}/sigma_{sigma}'):
+            shutil.rmtree(f'{args.log_dir}/sigma_{sigma}')
+        os.makedirs(f'{args.log_dir}/sigma_{sigma}')
+        if os.path.isdir(f'{args.log_dir}/sigma_{sigma}'):
+            shutil.rmtree(f'{args.log_dir}/sigma_{sigma}')
+        os.makedirs(f'{args.log_dir}/sigma_{sigma}')
 
     # print the arg pamameters
     for arg in vars(args):
@@ -258,7 +258,7 @@ def main(sigma):
     test_case3_h5 = Path('/home/junsung/DLA/test_data').joinpath('noise_niid', 'CBSD68_niid_case3.hdf5')
     test_im_list = (Path('/home/junsung/DLA/test_data') / 'CBSD68').glob('*.png')
     test_im_list = sorted([str(x) for x in test_im_list])
-    datasets = {'train': SimulateH5N2N(h5_path = args.simulateh5_dir, 
+    datasets = {'train': SimulateH5(h5_path = args.simulateh5_dir, 
                                           pch_size = args.patch_size, radius=args.radius, sigma=sigma),
                          'test_cbsd681':SimulateTest(test_im_list, test_case1_h5),
                         'test_cbsd682': SimulateTest(test_im_list, test_case2_h5),
