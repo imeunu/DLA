@@ -11,8 +11,10 @@ __pycache__/
  
 vanila/model/
 N2N/model/
+model_real/
 
 log/
+log_real/
 
 *.hdf5
 

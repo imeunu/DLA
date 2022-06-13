@@ -192,21 +192,26 @@ class SimulateH5N2N(uData.Dataset):
         return pch
 
 class RealH5(uData.Dataset):
-    def __init__(self, gt_h5_path, noise_h5_path):
+    def __init__(self, gt_h5_path, noise_h5_path, radius=5, eps2 = 1e-6, pch_size = 128):
+        self.win = 2*radius + 1
+        self.sigma_spatial = radius 
+        self.eps2 = eps2
+        self.pch_size = pch_size
+
         with h5.File(gt_h5_path, 'r') as h5_file:
             self.gt_keys = list(h5_file.keys())
             self.gt_imgs = np.array([np.array(h5_file[key]) for key in h5_file.keys()])
-            self.gt_num_images = len(self.keys)
+            self.gt_num_images = len(self.gt_keys)
 
 
         with h5.File(noise_h5_path, 'r') as h5_file:
             self.noise_keys = list(h5_file.keys())
-            self.noise_num_images = len(self.keys)
+            self.noise_num_images = len(self.noise_keys)
             self.noise_imgs = np.array([np.array(h5_file[key]) for key in h5_file.keys()])
 
     def __getitem__(self, index):
-        im_gt = img_as_float(self.crop_patch(self.gt_imgs[index]))
-        im_noisy = img_as_float(self.crop_patch(self.noise_imgs[index]))
+        im_gt = img_as_float(self.crop_patch(im=self.gt_imgs[index],seed = index))
+        im_noisy = img_as_float(self.crop_patch(im=self.noise_imgs[index], seed = index))
         
         # data augmentation
         im_gt, im_noisy = random_augmentation(im_gt, im_noisy)
@@ -222,7 +227,11 @@ class RealH5(uData.Dataset):
         
         return im_noisy, im_gt, sigma2_map_est, eps2
 
-    def crop_patch(self, im): 
+    def __len__(self):
+        return self.gt_num_images
+        
+    def crop_patch(self, im, seed):
+        random.seed(seed) 
         H = im.shape[0]
         W = im.shape[1]
         if H < self.pch_size or W < self.pch_size:
@@ -233,3 +242,28 @@ class RealH5(uData.Dataset):
         ind_W = random.randint(0, W-self.pch_size)
         pch = im[ind_H:ind_H+self.pch_size, ind_W:ind_W+self.pch_size]
         return pch    
+
+class BenchmarkTest(uData.Dataset):
+    def __init__(self,h5_path):
+        self.h5_path = h5_path        
+        with h5.File(h5_path, 'r') as h5_file:
+            self.keys = list(h5_file.keys())
+            self.num_images = len(self.keys)
+    
+    def __getitem__(self, index):
+        with h5.File(self.h5_path, 'r') as h5_file:
+            imgs_sets = h5_file[self.keys[index]]
+            C2 = imgs_sets.shape[2]
+            C = int(C2/2)
+            im_noisy = np.array(imgs_sets[:, :, :C])
+            im_gt = np.array(imgs_sets[:, :, C:])
+        im_gt = img_as_float(im_gt)
+        im_noisy = img_as_float(im_noisy)
+
+        im_gt = torch.from_numpy(im_gt.transpose((2, 0, 1)))
+        im_noisy = torch.from_numpy(im_noisy.transpose((2, 0, 1)))
+
+        return im_noisy, im_gt
+    
+    def __len__(self):
+        return self.num_images
