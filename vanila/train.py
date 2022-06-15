@@ -132,7 +132,7 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion, sigma):
         clip_grad_D = min(clip_grad_D, grad_norm_D)
         clip_grad_S = min(clip_grad_S, grad_norm_S)
         print('-'*150)
-
+        '''
         # test stage
         if epoch % 10 == 0:
             net.eval()
@@ -178,7 +178,7 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion, sigma):
                 print(log_str.format(phase, mse_per_epoch[phase], psnr_per_epoch[phase],
                                     ssim_per_epoch[phase]))
                 print('-'*90)
-
+            '''
         # adjust the learning rate
         lr_scheduler.step()
         # save model
@@ -199,9 +199,9 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion, sigma):
             save_path_model_state = os.path.join(f'{args.model_dir}/sigma_{sigma}', model_state_prefix+str(epoch+1)+'.pth')
             torch.save(net.state_dict(), save_path_model_state)
 
-        writer.add_scalars('MSE_epoch', mse_per_epoch, epoch)
-        writer.add_scalars('PSNR_epoch_test', psnr_per_epoch, epoch)
-        writer.add_scalars('SSIM_epoch_test', ssim_per_epoch, epoch)
+        # writer.add_scalars('MSE_epoch', mse_per_epoch, epoch)
+        # writer.add_scalars('PSNR_epoch_test', psnr_per_epoch, epoch)
+        # writer.add_scalars('SSIM_epoch_test', ssim_per_epoch, epoch)
         toc = time.time()
         print('This epoch take time {:.2f}'.format(toc-tic))
     writer.close()
@@ -268,5 +268,5 @@ def main(sigma):
     train_model(net, datasets, optimizer, scheduler, loss_fn, sigma)
 
 if __name__ == '__main__':
-    for sigma in [15,25,50]:
+    for sigma in [25,50]:
         main(sigma)

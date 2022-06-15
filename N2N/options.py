@@ -24,7 +24,7 @@ def set_opts():
                                              help="Cliping the gradients for S-Net, (default: 1e3)")
 
     # GPU settings
-    parser.add_argument('--gpu_id', type=int, nargs='+', default=2,
+    parser.add_argument('--gpu_id', type=int, nargs='+', default=1,
                                                            help="GPU ID, which allow multiple GPUs")
 
     # dataset settings
@@ -40,10 +40,10 @@ def set_opts():
                                                  help="Path to save the log file, (default: ./log)")
     parser.add_argument('--model_dir', default='./model', type=str, metavar='PATH',
                                              help="Path to save the model file, (default: ./model)")
-    parser.add_argument('--resume', default='/home/eunu/DLA/N2N/model/sigma_15_N2N/model_30.pth', type=str, metavar='PATH',
+    parser.add_argument('--resume', default='/home/eunu/DLA/N2N/model//model_24', type=str, metavar='PATH',
                                                help="Path to the latest checkpoint (default: None)")
     parser.add_argument('--num_workers', default=8, type=int,
-                                                help="Number of workers to load data, (default: 8)")
+                                                help="Number of workers to load data, (default: 8)") 
     # hyper-parameters
     parser.add_argument('--eps2', default=1e-6, type=float,
                                                     help="Variance for prior of Z, (default: 1e-6)")

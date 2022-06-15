@@ -40,7 +40,7 @@ def set_opts():
                                                  help="Path to save the log file, (default: ./log)")
     parser.add_argument('--model_dir', default='./model', type=str, metavar='PATH',
                                              help="Path to save the model file, (default: ./model)")
-    parser.add_argument('--resume', default='/home/eunu/DLA/vanila/model/sigma_15/model_20.pth', type=str, metavar='PATH',
+    parser.add_argument('--resume', default='', type=str, metavar='PATH',
                                                help="Path to the latest checkpoint (default: None)")
     parser.add_argument('--num_workers', default=8, type=int,
                                                 help="Number of workers to load data, (default: 8)")
