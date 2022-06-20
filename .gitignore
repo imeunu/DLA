@@ -19,3 +19,5 @@ log_real/
 *.hdf5
 
 results/
+results_niid/
+results_real/

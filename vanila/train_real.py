@@ -126,7 +126,7 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion):
         print('-'*150)
 
         # test stage
-        if epoch % 10 == 0:
+        if epoch == 0 or (epoch+1) %  args.save_model_freq == 0:
             net.eval()
             psnr_per_epoch = {x:0 for x in _modes[1:]}
             ssim_per_epoch = {x:0 for x in _modes[1:]}
@@ -204,8 +204,8 @@ def main():
     # move the model to GPU
     net = VDN(_C, wf=args.wf, slope=args.slope, dep_U=args.depth)
     # multi GPU setting
-    net = nn.DataParallel(net).cuda()
-
+    # net = nn.DataParallel(net).cuda()
+    net = net.cuda()
     # optimizer
     optimizer = optim.Adam(net.parameters(), lr=args.lr)
     

@@ -12,11 +12,11 @@ from glob import glob
 from pathlib import Path
 
 class SimulateH5(uData.Dataset):
-    def __init__(self, h5_path, pch_size, radius, sigma):
+    def __init__(self, h5_path, pch_size, radius):
         self.h5_path = h5_path
         self.pch_size = pch_size
         self.sigma_min = 0
-        self.sigma_max = sigma
+        self.sigma_max = 25
 
         self.win = 2*radius + 1
         self.sigma_spatial = radius
@@ -38,9 +38,10 @@ class SimulateH5(uData.Dataset):
 
         # generate noise 
         noise = torch.randn(im_gt.shape).numpy() * sigma_map
+        noise2 = torch.randn(im_gt.shape).numpy() * sigma_map
         im_noisy = im_gt + noise.astype(np.float32)
 
-        im_gt, im_noisy, sigma_map = random_augmentation(im_gt, im_noisy, sigma_map)
+        im_gt, im_noisy, sigma_map, noise2 = random_augmentation(im_gt, im_noisy, sigma_map, noise2)
 
         # sigma2_map_est = sigma_estimate(im_noisy, im_gt, self.win, self.sigma_spatial)
         # sigma2_map_est = torch.from_numpy(sigma2_map_est.transpose((2,0,1)))
@@ -53,7 +54,7 @@ class SimulateH5(uData.Dataset):
         im_gt = torch.from_numpy(im_gt.transpose((2,0,1)))
         im_noisy = torch.from_numpy(im_noisy.transpose(2,0,1))
         
-        return im_noisy, im_gt, sigma2_map_gt, #sigma2_map_est
+        return im_noisy, im_gt, sigma2_map_gt, torch.from_numpy(noise2.transpose((2,0,1)))
 
     def __len__(self):
         return self.num_images
@@ -267,3 +268,75 @@ class BenchmarkTest(uData.Dataset):
     
     def __len__(self):
         return self.num_images
+
+class RealH5N2N(uData.Dataset):
+    def __init__(self, gt_h5_path, noise_h5_path, radius=5, eps2 = 1e-6, pch_size = 128):
+        self.win = 2*radius + 1
+        self.sigma_spatial = radius 
+        self.eps2 = eps2
+        self.pch_size = pch_size
+
+        with h5.File(gt_h5_path, 'r') as h5_file:
+            self.gt_keys = list(h5_file.keys())
+            self.gt_imgs = np.array([np.array(h5_file[key]) for key in h5_file.keys()])
+            self.gt_num_images = len(self.gt_keys)
+
+
+        with h5.File(noise_h5_path, 'r') as h5_file:
+            self.noise_keys = list(h5_file.keys())
+            self.noise_num_images = len(self.noise_keys)
+            self.noise_imgs = np.array([np.array(h5_file[key]) for key in h5_file.keys()])
+
+    def __getitem__(self, index):
+        im_gt = img_as_float(self.crop_patch(im=self.gt_imgs[index],seed = index))
+        im_noisy = img_as_float(self.crop_patch(im=self.noise_imgs[index], seed = index))
+        
+        # generate sigmaMap 
+        sigma_map = self.generate_sigma()
+
+        # generate noise 
+        noise = torch.randn(im_gt.shape).numpy() * sigma_map
+        im_gt = im_gt + noise.astype(np.float32)
+
+        # data augmentation
+        im_gt, im_noisy = random_augmentation(im_gt, im_noisy)
+
+        sigma2_map_est = sigma_estimate(im_noisy, im_gt, self.win, self.sigma_spatial)
+
+        im_gt = torch.from_numpy(im_gt.transpose((2, 0, 1)))
+        im_noisy = torch.from_numpy(im_noisy.transpose((2, 0, 1)))
+        eps2 = torch.tensor([self.eps2], dtype=torch.float32).reshape((1,1,1))
+
+        sigma2_map_est = torch.from_numpy(sigma2_map_est.transpose((2, 0, 1)))
+        
+        return im_noisy, im_gt, sigma2_map_est, eps2
+
+    def __len__(self):
+        return self.gt_num_images
+        
+    def crop_patch(self, im, seed):
+        random.seed(seed) 
+        H = im.shape[0]
+        W = im.shape[1]
+        if H < self.pch_size or W < self.pch_size:
+            H = max(self.pch_size, H)
+            W = max(self.pch_size, W)
+            im = cv2.resize(im, (W, H))
+        ind_H = random.randint(0, H-self.pch_size)
+        ind_W = random.randint(0, W-self.pch_size)
+        pch = im[ind_H:ind_H+self.pch_size, ind_W:ind_W+self.pch_size]
+        return pch    
+
+    def generate_sigma(self):
+        center = [random.uniform(0, self.pch_size), random.uniform(0, self.pch_size)]
+        scale = random.uniform(self.pch_size/4, self.pch_size/4*3)
+        kernel = gaussian_kernel(self.pch_size, self.pch_size, center, scale)
+        up = random.uniform(self.sigma_max/255.0, self.sigma_max/255.0)
+        down = random.uniform(self.sigma_min/255.0, self.sigma_max/255.0)
+        if up < down:
+            up, down = down, up
+        up += 5/255.0
+        sigma_map = down + (kernel-kernel.min())/(kernel.max()-kernel.min())  *(up-down)
+        sigma_map = sigma_map.astype(np.float32)
+
+        return sigma_map[:, :, np.newaxis]
