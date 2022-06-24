@@ -24,7 +24,7 @@ def set_opts():
                                              help="Cliping the gradients for S-Net, (default: 1e3)")
 
     # GPU settings
-    parser.add_argument('--gpu_id', type=int, nargs='+', default=1,
+    parser.add_argument('--gpu_id', type=int, nargs='+', default=3,
                                                            help="GPU ID, which allow multiple GPUs")
 
     # dataset settings
@@ -36,9 +36,9 @@ def set_opts():
 
 
     # model and log saving
-    parser.add_argument('--log_dir', default='./log', type=str, metavar='PATH',
+    parser.add_argument('--log_dir', default='./log/N2N', type=str, metavar='PATH',
                                                  help="Path to save the log file, (default: ./log)")
-    parser.add_argument('--model_dir', default='./model', type=str, metavar='PATH',
+    parser.add_argument('--model_dir', default='./model/N2N', type=str, metavar='PATH',
                                              help="Path to save the model file, (default: ./model)")
     parser.add_argument('--resume', default='', type=str, metavar='PATH',
                                                help="Path to the latest checkpoint (default: None)")

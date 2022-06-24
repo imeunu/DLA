@@ -10,7 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 from math import ceil
 from loss import loss_fn
 from networks.VDN import VDN, weight_init_kaiming
-from dataset import SimulateH5, SimulateTest
+from dataset import SimulateH5, SimulateH5N2N, SimulateTest
 import torch.utils.data as uData
 import torch.optim as optim
 import torch.nn.functional as F
@@ -20,6 +20,7 @@ import os
 import sys
 from pathlib import Path
 from options import set_opts
+from networks.pre_UNet import UNet
 
 # filter warnings
 warnings.simplefilter('ignore', Warning, lineno=0)
@@ -35,30 +36,30 @@ _C = 3
 _lr_min = 1e-6
 _modes = ['train', 'test_cbsd681', 'test_cbsd682', 'test_cbsd683']
 
-def train_model(net, datasets, optimizer, lr_scheduler, criterion, sigma):
-    os.makedirs(f'{args.model_dir}/sigma_{sigma}', exist_ok=True)
+def train_model(net, datasets, optimizer, lr_scheduler, criterion):
+    os.makedirs(args.model_dir, exist_ok=True)
     clip_grad_D = args.clip_grad_D
     clip_grad_S = args.clip_grad_S
     batch_size = {'train': args.batch_size, 'test_cbsd681': 1, 'test_cbsd682': 1, 'test_cbsd683': 1}
 
     train_loader = uData.DataLoader(datasets['train'], batch_size=batch_size['train'], shuffle=True, num_workers=args.num_workers, pin_memory=True)
-    test1_loader = uData.DataLoader(datasets['test_cbsd681'], batch_size=batch_size['test_cbsd681'], shuffle=False, num_workers=args.num_workers, pin_memory=True)
-    test2_loader = uData.DataLoader(datasets['test_cbsd682'], batch_size=batch_size['test_cbsd682'], shuffle=False, num_workers=args.num_workers, pin_memory=True)
-    test3_loader = uData.DataLoader(datasets['test_cbsd683'], batch_size=batch_size['test_cbsd683'], shuffle=False, num_workers=args.num_workers, pin_memory=True)
+    # test1_loader = uData.DataLoader(datasets['test_cbsd681'], batch_size=batch_size['test_cbsd681'], shuffle=False, num_workers=args.num_workers, pin_memory=True)
+    # test2_loader = uData.DataLoader(datasets['test_cbsd682'], batch_size=batch_size['test_cbsd682'], shuffle=False, num_workers=args.num_workers, pin_memory=True)
+    # test3_loader = uData.DataLoader(datasets['test_cbsd683'], batch_size=batch_size['test_cbsd683'], shuffle=False, num_workers=args.num_workers, pin_memory=True)
 
-    data_loader = {'train' : train_loader, 'test_cbsd681' : test1_loader, 'test_cbsd682' : test2_loader, 'test_cbsd683' : test3_loader}
+    # data_loader = {'train' : train_loader, 'test_cbsd681' : test1_loader, 'test_cbsd682' : test2_loader, 'test_cbsd683' : test3_loader}
 
     num_data = {phase: len(datasets[phase]) for phase in datasets.keys()}
     num_iter_epoch = {phase: ceil(num_data[phase] / batch_size[phase]) for phase in datasets.keys()}
-    writer = SummaryWriter(f'{args.log_dir}/sigma_{sigma}')
+    writer = SummaryWriter(args.log_dir)
     if args.resume:
         step = args.step
         step_img = args.step_img
     else:
         step = 0
         step_img = {x: 0 for x in _modes}
-    param_D = [x for name, x in net.named_parameters() if 'dnet' in name.lower()]
-    param_S = [x for name, x in net.named_parameters() if 'snet' in name.lower()]
+    #param_D = [x for name, x in net.named_parameters() if 'dnet' in name.lower()]
+    #param_S = [x for name, x in net.named_parameters() if 'snet' in name.lower()]
     for epoch in range(args.epoch_start, args.epochs):
         loss_per_epoch = {x: 0 for x in ['Loss', 'lh', 'KLG', 'KLIG']}
         mse_per_epoch = {x: 0 for x in _modes}
@@ -70,7 +71,7 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion, sigma):
         #if lr < _lr_min:
         #    sys.exit('Reach the minimal learning rate')
         phase = 'train'
-        for ii, data in enumerate(data_loader[phase]):
+        for ii, data in enumerate(train_loader):
             im_noisy, im_gt, sigmaMapGt = [x.cuda() for x in data]
             optimizer.zero_grad()
             phi_Z, phi_sigma = net(im_noisy, 'train')
@@ -78,10 +79,10 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion, sigma):
                                                           sigmaMapGt, args.eps2, radius=args.radius)
             loss.backward()
             # clip the gradnorm
-            total_norm_D = nn.utils.clip_grad_norm_(param_D, clip_grad_D)
-            total_norm_S = nn.utils.clip_grad_norm_(param_S, clip_grad_S)
-            grad_norm_D = (grad_norm_D*(ii/(ii+1)) + total_norm_D/(ii+1))
-            grad_norm_S = (grad_norm_S*(ii/(ii+1)) + total_norm_S/(ii+1))
+            # total_norm_D = nn.utils.clip_grad_norm_(param_D, clip_grad_D)
+            # total_norm_S = nn.utils.clip_grad_norm_(param_S, clip_grad_S)
+            # grad_norm_D = (grad_norm_D*(ii/(ii+1)) + total_norm_D/(ii+1))
+            # grad_norm_S = (grad_norm_S*(ii/(ii+1)) + total_norm_S/(ii+1))
             optimizer.step()
 
             loss_per_epoch['Loss'] += loss.item() / num_iter_epoch[phase]
@@ -92,33 +93,18 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion, sigma):
             mse = F.mse_loss(im_denoise, im_gt)
             im_denoise.clamp_(0.0, 1.0)
             mse_per_epoch[phase] += mse
-            if (ii+1) % args.print_freq == 0:
-                log_str = '[Epoch:{:>2d}/{:<2d}] {:s}:{:0>4d}/{:0>4d}, lh={:+4.2f}, ' + \
-                        'KLG={:+>7.2f}, KLIG={:+>6.2f}, mse={:.2e}, GNorm_D:{:.1e}/{:.1e}, ' + \
-                                                                  'GNorm_S:{:.1e}/{:.1e}, lr={:.1e}'
-                print(log_str.format(epoch+1, args.epochs, phase, ii+1, num_iter_epoch[phase],
-                                         g_lh.item(), kl_g.item(), kl_Igam.item(), mse, clip_grad_D,
-                                                       total_norm_D, clip_grad_S, total_norm_S, lr))
-                writer.add_scalar('Train Loss Iter', loss.item(), step)
-                writer.add_scalar('Train MSE Iter', mse, step)
-                writer.add_scalar('Gradient Norm_D Iter', total_norm_D, step)
-                writer.add_scalar('Gradient Norm_S Iter', total_norm_S, step)
-                step += 1
-            if (ii+1) % (20*args.print_freq) == 0:
-                alpha = torch.exp(phi_sigma[:, :_C, ])
-                beta = torch.exp(phi_sigma[:, _C:, ])
-                sigmaMap_pred = beta / (alpha-1)
-                x1 = vutils.make_grid(im_denoise, normalize=True, scale_each=True)
-                writer.add_image(phase+' Denoised images', x1, step_img[phase])
-                x2 = vutils.make_grid(im_gt, normalize=True, scale_each=True)
-                writer.add_image(phase+' GroundTruth', x2, step_img[phase])
-                x3 = vutils.make_grid(sigmaMap_pred, normalize=True, scale_each=True)
-                writer.add_image(phase+' Predict Sigma', x3, step_img[phase])
-                x4 = vutils.make_grid(sigmaMapGt, normalize=True, scale_each=True)
-                writer.add_image(phase+' Groundtruth Sigma', x4, step_img[phase])
-                x5 = vutils.make_grid(im_noisy, normalize=True, scale_each=True)
-                writer.add_image(phase+' Noisy Image', x5, step_img[phase])
-                step_img[phase] += 1
+            # if (ii+1) % args.print_freq == 0:
+            #     log_str = '[Epoch:{:>2d}/{:<2d}] {:s}:{:0>4d}/{:0>4d}, lh={:+4.2f}, ' + \
+            #             'KLG={:+>7.2f}, KLIG={:+>6.2f}, mse={:.2e}, GNorm_D:{:.1e}/{:.1e}, ' + \
+            #                                                       'GNorm_S:{:.1e}/{:.1e}, lr={:.1e}'
+            #     print(log_str.format(epoch+1, args.epochs, phase, ii+1, num_iter_epoch[phase],
+            #                              g_lh.item(), kl_g.item(), kl_Igam.item(), mse, clip_grad_D,
+            #                                            total_norm_D, clip_grad_S, total_norm_S, lr))
+            #     writer.add_scalar('Train Loss Iter', loss.item(), step)
+            #     writer.add_scalar('Train MSE Iter', mse, step)
+            #     writer.add_scalar('Gradient Norm_D Iter', total_norm_D, step)
+            #     writer.add_scalar('Gradient Norm_S Iter', total_norm_S, step)
+            #     step += 1
 
         mse_per_epoch[phase] /= (ii+1)
         log_str ='{:s}: Loss={:+.2e}, lh={:+.2e}, KL_Guass={:+.2e}, KLIG={:+.2e}, mse={:.3e}, ' + \
@@ -184,7 +170,7 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion, sigma):
         # save model
         if (epoch+1) % args.save_model_freq == 0 or epoch+1 == args.epochs:
             model_prefix = 'model_'
-            save_path_model = os.path.join(f'{args.model_dir}/sigma_{sigma}', model_prefix+str(epoch+1)+'.pth')
+            save_path_model = os.path.join(args.model_dir, model_prefix+str(epoch+1)+'.pth')
             torch.save({
                 'epoch': epoch+1,
                 'step': step+1,
@@ -196,7 +182,7 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion, sigma):
                 'lr_scheduler_state_dict': lr_scheduler.state_dict()
             }, save_path_model)
             model_state_prefix = 'model_state_'
-            save_path_model_state = os.path.join(f'{args.model_dir}/sigma_{sigma}', model_state_prefix+str(epoch+1)+'.pth')
+            save_path_model_state = os.path.join(args.model_dir, model_state_prefix+str(epoch+1)+'.pth')
             torch.save(net.state_dict(), save_path_model_state)
 
         # writer.add_scalars('MSE_epoch', mse_per_epoch, epoch)
@@ -207,41 +193,51 @@ def train_model(net, datasets, optimizer, lr_scheduler, criterion, sigma):
     writer.close()
     print('Reach the maximal epochs! Finish training')
 
-def main(sigma):
+def main():
     # build the model
     net = VDN(_C, slope=args.slope, wf=args.wf, dep_U=args.depth)
     # move the model to GPU
-    net = nn.DataParallel(net).cuda()
+    net = nn.DataParallel(net)
+    
+    checkpoint = torch.load('/home/eunu/nas/DLA/unet_sigma_25/unet_state_200.pth')
+    pre_model = nn.DataParallel(UNet())
+
+    keys = [k[:7]+'DNet.'+k[7:] for k, v in pre_model.state_dict().items()]
+
+    new_model_dict = net.state_dict()
+    pre_trained_dict = {k: v for k, v in checkpoint.items() if k in keys[:-2]}
+    new_model_dict.update(pre_trained_dict)
+    net.load_state_dict(new_model_dict)
+    net = net.cuda()
 
     # optimizer
     optimizer = optim.Adam(net.parameters(), lr=args.lr)
     # args.milestones = [20, 70, 150, 300, 500]
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=35, gamma = args.gamma)
 
-    if args.resume:
-        if os.path.isfile(args.resume):
-            print('=> Loading checkpoint {:s}'.format(args.resume))
-            checkpoint = torch.load(args.resume)
-            args.epoch_start = checkpoint['epoch']
-            args.step = checkpoint['step']
-            args.step_img = checkpoint['step_img']
-            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            scheduler.load_state_dict(checkpoint['lr_scheduler_state_dict'])
-            net.load_state_dict(checkpoint['model_state_dict'])
-            args.clip_grad_D = checkpoint['grad_norm_D']
-            args.clip_grad_S = checkpoint['grad_norm_S']
-            print('=> Loaded checkpoint {:s} (epoch {:d})'.format(args.resume, checkpoint['epoch']))
-        else:
-            sys.exit('Please provide corrected model path!')
-    else:
-        net = weight_init_kaiming(net)
-        args.epoch_start = 0
-        if os.path.isdir(f'{args.log_dir}/sigma_{sigma}'):
-            shutil.rmtree(f'{args.log_dir}/sigma_{sigma}')
-        os.makedirs(f'{args.log_dir}/sigma_{sigma}')
-        if os.path.isdir(f'{args.log_dir}/sigma_{sigma}'):
-            shutil.rmtree(f'{args.log_dir}/sigma_{sigma}')
-        os.makedirs(f'{args.log_dir}/sigma_{sigma}')
+    # if args.resume:
+    #     if os.path.isfile(args.resume):
+    #         print('=> Loading checkpoint {:s}'.format(args.resume))
+    #         checkpoint = torch.load(args.resume)
+    #         args.epoch_start = checkpoint['epoch']
+    #         args.step = checkpoint['step']
+    #         args.step_img = checkpoint['step_img']
+    #         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    #         scheduler.load_state_dict(checkpoint['lr_scheduler_state_dict'])
+    #         net.load_state_dict(checkpoint['model_state_dict'])
+    #         args.clip_grad_D = checkpoint['grad_norm_D']
+    #         args.clip_grad_S = checkpoint['grad_norm_S']
+    #         print('=> Loaded checkpoint {:s} (epoch {:d})'.format(args.resume, checkpoint['epoch']))
+    #     else:
+    #         sys.exit('Please provide corrected model path!')
+
+    args.epoch_start = 0
+    if os.path.isdir(args.log_dir):
+        shutil.rmtree(args.log_dir)
+    os.makedirs(args.log_dir)
+    if os.path.isdir(args.log_dir):
+        shutil.rmtree(args.log_dir)
+    os.makedirs(args.log_dir)
 
     # print the arg pamameters
     for arg in vars(args):
@@ -253,20 +249,20 @@ def main(sigma):
                                                                     list(simulate_dir.glob('*.bmp'))
     train_im_list = sorted([str(x) for x in train_im_list])
     # making tesing data
-    test_case1_h5 = Path('/home/junsung/DLA/test_data').joinpath('noise_niid', 'CBSD68_niid_case1.hdf5')
-    test_case2_h5 = Path('/home/junsung/DLA/test_data').joinpath('noise_niid', 'CBSD68_niid_case2.hdf5')
-    test_case3_h5 = Path('/home/junsung/DLA/test_data').joinpath('noise_niid', 'CBSD68_niid_case3.hdf5')
-    test_im_list = (Path('/home/junsung/DLA/test_data') / 'CBSD68').glob('*.png')
-    test_im_list = sorted([str(x) for x in test_im_list])
-    datasets = {'train': SimulateH5(h5_path = args.simulateh5_dir, 
-                                          pch_size = args.patch_size, radius=args.radius, sigma=sigma),
-                         'test_cbsd681':SimulateTest(test_im_list, test_case1_h5),
-                        'test_cbsd682': SimulateTest(test_im_list, test_case2_h5),
-                        'test_cbsd683': SimulateTest(test_im_list, test_case3_h5)}
+    # test_case1_h5 = Path('/home/junsung/DLA/test_data').joinpath('noise_niid', 'CBSD68_niid_case1.hdf5')
+    # test_case2_h5 = Path('/home/junsung/DLA/test_data').joinpath('noise_niid', 'CBSD68_niid_case2.hdf5')
+    # test_case3_h5 = Path('/home/junsung/DLA/test_data').joinpath('noise_niid', 'CBSD68_niid_case3.hdf5')
+    # test_im_list = (Path('/home/junsung/DLA/test_data') / 'CBSD68').glob('*.png')
+    # test_im_list = sorted([str(x) for x in test_im_list])
+    #datasets = {'train': SimulateH5(h5_path = args.simulateh5_dir, 
+                        #                   pch_size = args.patch_size, radius=args.radius, sigma=sigma),
+                        #  'test_cbsd681':SimulateTest(test_im_list, test_case1_h5),
+                        # 'test_cbsd682': SimulateTest(test_im_list, test_case2_h5),
+                        # 'test_cbsd683': SimulateTest(test_im_list, test_case3_h5)}
+    datasets = {'train':SimulateH5N2N(h5_path = args.simulateh5_dir,pch_size = args.patch_size, radius=args.radius)}
     # train model
     print('\nBegin training with GPU: ' + str(args.gpu_id))
-    train_model(net, datasets, optimizer, scheduler, loss_fn, sigma)
+    train_model(net, datasets, optimizer, scheduler, loss_fn)
 
 if __name__ == '__main__':
-    for sigma in [25,50]:
-        main(sigma)
+    main()

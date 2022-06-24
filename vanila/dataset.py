@@ -38,10 +38,10 @@ class SimulateH5(uData.Dataset):
 
         # generate noise 
         noise = torch.randn(im_gt.shape).numpy() * sigma_map
-        noise2 = torch.randn(im_gt.shape).numpy() * sigma_map
+        # noise2 = torch.randn(im_gt.shape).numpy() * sigma_map
         im_noisy = im_gt + noise.astype(np.float32)
 
-        im_gt, im_noisy, sigma_map, noise2 = random_augmentation(im_gt, im_noisy, sigma_map, noise2)
+        im_gt, im_noisy, sigma_map= random_augmentation(im_gt, im_noisy, sigma_map)
 
         # sigma2_map_est = sigma_estimate(im_noisy, im_gt, self.win, self.sigma_spatial)
         # sigma2_map_est = torch.from_numpy(sigma2_map_est.transpose((2,0,1)))
@@ -54,7 +54,7 @@ class SimulateH5(uData.Dataset):
         im_gt = torch.from_numpy(im_gt.transpose((2,0,1)))
         im_noisy = torch.from_numpy(im_noisy.transpose(2,0,1))
         
-        return im_noisy, im_gt, sigma2_map_gt, torch.from_numpy(noise2.transpose((2,0,1)))
+        return im_noisy, im_gt, sigma2_map_gt, # torch.from_numpy(noise2.transpose((2,0,1)))
 
     def __len__(self):
         return self.num_images
@@ -111,11 +111,11 @@ class SimulateTest(uData.Dataset):
         return im_noisy, im_gt
 
 class SimulateH5N2N(uData.Dataset):
-    def __init__(self, h5_path, pch_size, radius, sigma):
+    def __init__(self, h5_path, pch_size, radius):
         self.h5_path = h5_path
         self.pch_size = pch_size
         self.sigma_min = 0
-        self.sigma_max = sigma
+        self.sigma_max = 25
 
         self.win = 2*radius + 1
         self.sigma_spatial = radius
