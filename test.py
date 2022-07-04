@@ -17,7 +17,7 @@ import time
 def get_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument('--use_gpu', type = bool, default=True)
-    parser.add_argument('--checkpoint', type=str, default='/home/junsung/DLA/vanila/model/test/model_state_150.pth')
+    parser.add_argument('--checkpoint', type=str, default='/home/eunu/nas/DLA/model_state_150.pth')
     
     return parser.parse_args()
 
@@ -28,12 +28,24 @@ case = 3
 C = 3
 dep_U = 4
 
-# device 
-device = torch.device('cuda:2')
+checkpoints = {
+    'vdn' : '/home/eunu/nas/DLA/model_state_150.pth',
+    'N2N' : '/home/eunu/nas/DLA/n2n_sigma25_model_state_150.pth',
+    'N2N_1' : '/home/eunu/nas/DLA/n2n_sigma25_model_state_150_1.pth',
+    'unet' : '/home/eunu/nas/DLA/unet_sigma_25/unet_state_200.pth',
+    'ft_vdn' : '/home/junsung/DLA/vanila/model/test/model_state_150.pth',
+    'ft_N2N' : '/home/junsung/DLA/vanila/model/N2N/model_state_150.pth',
+    'ft_ch_sigma_N2N' : '/home/junsung/DLA/vanila/model/N2N_ch_sigma/model_state_150.pth' 
+}
 
+
+# device 
+device = torch.device('cuda:3')
+
+model_name = 'N2N'
 # load the pretrained model
 print('Loading the Model')
-checkpoint = torch.load(args.checkpoint, map_location=device)
+checkpoint = torch.load(checkpoints[model_name], map_location=device)
 #----------for data parallel error---------# 
 from collections import OrderedDict
 
@@ -51,7 +63,7 @@ else:
 net.eval()
 
 datasets = ['Set5', 'LIVE1', 'CBSD68']
-
+print(model_name)
 print('---------------------Synthetic results------------------------')
 for case in range(1,4): 
     for dataset in datasets:

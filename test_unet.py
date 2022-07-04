@@ -48,7 +48,7 @@ C = 3
 dep_U = 4
 
 # device 
-device = torch.device('cuda:2')
+device = torch.device('cuda:3')
 
 checkpoint = torch.load('/home/eunu/nas/DLA/unet_sigma_25/unet_state_200.pth', map_location=device)
 #----------for data parallel error---------# 

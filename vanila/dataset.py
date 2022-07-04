@@ -131,7 +131,8 @@ class SimulateH5N2N(uData.Dataset):
 
         # generate sigmaMap 
         sigma_map1, sigma_map2 = self.generate_sigma(), self.generate_sigma()
-        sigma_map = sigma_map1 + sigma_map2
+        # sigma_map = sigma_map1 + sigma_map2
+        sigma_map = sigma_map2
 
         # generate noise 
         noise1 = torch.randn(im_gt.shape).numpy() * sigma_map1

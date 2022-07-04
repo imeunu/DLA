@@ -244,10 +244,10 @@ def main():
         print('{:<15s}: {:s}'.format(arg,  str(getattr(args, arg))))
 
     # making traing data
-    simulate_dir = Path(args.simulate_dir)
-    train_im_list = list(simulate_dir.glob('*.jpg')) + list(simulate_dir.glob('*.png')) + \
-                                                                    list(simulate_dir.glob('*.bmp'))
-    train_im_list = sorted([str(x) for x in train_im_list])
+    # simulate_dir = Path(args.simulate_dir)
+    # train_im_list = list(simulate_dir.glob('*.jpg')) + list(simulate_dir.glob('*.png')) + \
+    #                                                                 list(simulate_dir.glob('*.bmp'))
+    # train_im_list = sorted([str(x) for x in train_im_list])
     # making tesing data
     # test_case1_h5 = Path('/home/junsung/DLA/test_data').joinpath('noise_niid', 'CBSD68_niid_case1.hdf5')
     # test_case2_h5 = Path('/home/junsung/DLA/test_data').joinpath('noise_niid', 'CBSD68_niid_case2.hdf5')

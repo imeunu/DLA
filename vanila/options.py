@@ -36,9 +36,9 @@ def set_opts():
 
 
     # model and log saving
-    parser.add_argument('--log_dir', default='./log/N2N', type=str, metavar='PATH',
+    parser.add_argument('--log_dir', default='./log/N2N_ch_sigma', type=str, metavar='PATH',
                                                  help="Path to save the log file, (default: ./log)")
-    parser.add_argument('--model_dir', default='./model/N2N', type=str, metavar='PATH',
+    parser.add_argument('--model_dir', default='./model/N2N_ch_sigma', type=str, metavar='PATH',
                                              help="Path to save the model file, (default: ./model)")
     parser.add_argument('--resume', default='', type=str, metavar='PATH',
                                                help="Path to the latest checkpoint (default: None)")
